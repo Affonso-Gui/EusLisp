@@ -246,7 +246,7 @@ register pointer *argv;
     i=1;
     while (i<n) {
       a=argv[i];
-      if (!islist(a)) error(E_NOLIST);
+      if (!islist(a)) {ctx->vsp--; goto MAPCAR_ENDLIST;}
       ckpush(ccar(a));
       argv[i]=ccdr(a);
       i++;}
@@ -256,7 +256,8 @@ register pointer *argv;
     ctx->vsp -=i;
     vpush(r);
     rcount++;}
-    GC_POINT;
+  MAPCAR_ENDLIST:
+  GC_POINT;
   r=(pointer)stacknlist(ctx,rcount);
   return(r);}
 
