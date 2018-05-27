@@ -718,7 +718,7 @@ pointer mod;
   defun(ctx,"CLASS",mod,GETCLASS);
   defun(ctx,"ENTER-CLASS",mod,ENTERCLASS);
 /*  defspecial("DEFCLASS",mod,DEFCLASS); */
-  defspecial(ctx,"DEFMETHOD",mod,DEFMETHOD);
+  defspecial(ctx,"DEFMETHOD",mod,DEFMETHOD,"(name args &rest body)");
   defun(ctx,"SEND",mod,SEND);
   defun(ctx,"SEND-MSG",mod,SEND);
   defun(ctx,"SEND-IF-FOUND",mod,SEND_IF_FOUND);

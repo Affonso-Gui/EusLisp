@@ -673,15 +673,18 @@ int special_index()
   return(x);}
 #endif
 
-pointer defspecial(ctx,name,mod,f)	/*define special form*/
+pointer defspecial(ctx,name,mod,f,doc)	/*define special form*/
 register context *ctx;
 char *name;
 pointer mod;
 pointer (*f)();
+char* doc;
 { register pointer sym,pkg;
+  extern pointer putprop();
   pkg=Spevalof(PACKAGE);
   sym=intern(ctx,name,strlen(name),pkg);
   pointer_update(sym->c.sym.spefunc,makecode(mod,f,SUBR_SPECIAL));
+  if (doc) putprop(ctx, sym, makestring(doc,strlen(doc)), K_FUNCTION_DOCUMENTATION);
   return(sym);}
 
 pointer defconst(ctx,name,val,pkg)

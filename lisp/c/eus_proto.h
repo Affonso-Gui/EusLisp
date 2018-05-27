@@ -349,7 +349,7 @@ extern pointer defun(context */*ctx*/, char */*name*/, pointer /*mod*/, pointer 
 extern pointer defunpkg(context */*ctx*/, char */*name*/, pointer /*mod*/, pointer (*/*f*/)(), pointer /*pkg*/);
 extern pointer defmacro(context */*ctx*/, char */*name*/, pointer /*mod*/, pointer (*/*f*/)());
 extern int special_index(void);
-extern pointer defspecial(context */*ctx*/, char */*name*/, pointer /*mod*/, pointer (*/*f*/)());
+extern pointer defspecial(context */*ctx*/, char */*name*/, pointer /*mod*/, pointer (*/*f*/)(), char *);
 extern pointer defconst(context */*ctx*/, char */*name*/, pointer /*val*/, pointer /*pkg*/);
 extern pointer defvar(context */*ctx*/, char */*name*/, pointer /*val*/, pointer /*pkg*/);
 extern pointer deflocal(context */*ctx*/, char */*name*/, pointer /*val*/, pointer /*pkg*/);
