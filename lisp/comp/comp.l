@@ -1104,13 +1104,16 @@
           (push name *defun-list*))
        (setq doc 
 	     (if (and (stringp (car bodies))  (cdr bodies))
-		 (pop bodies)
-		 (format nil "~s" arglist)))
+		 (pop bodies)))
        (send self :lambda-block name arglist bodies cname)
-       (send self :add-initcode (list fun-macro cname name doc))))
+       (setq arglist
+	     (if arglist
+		 (format nil "~s" arglist)
+		 "()"))
+       (send self :add-initcode (list fun-macro cname name arglist doc))))
  (:defmethod (methods) 
    (let*
-	(method selector param bodies entry next
+	(method selector param arglist bodies entry next
 	 (myclass (car methods))
 	 (objvars (object-variable-names myclass))
 	 (i 0) (v nil) doc)
@@ -1127,16 +1130,16 @@
 	 (setq method (pop methods)
 	       selector (car method)
 	       param (cons 'self (cons 'class (cadr method)))
+	       arglist (if (cadr method) (format nil "~s" (cadr method)) "()")
 	       bodies (cddr method) )
          (setq entry (send self :genlabel "M"
                            (lisp::gencname-tail myclass selector)))
 	 (setq doc 
 	       (if (and (stringp (car bodies))  (cdr bodies))
-		   (pop bodies)
-		   (format nil "~s" param)))
+		   (pop bodies)))
 	 (send self :lambda-block selector param bodies entry)
          (send self :add-initcode
-		 (list 'defmethod myclass selector entry doc) ))
+		 (list 'defmethod myclass selector entry arglist doc) ))
       (setq myclass nil)
       (send self :delete-frame nil)
       ))
@@ -1198,11 +1201,11 @@
    (let* ((fn (car form)))
       (case fn
 	(defun
-	   (send trans :defun (caddr form) (cadr form) (fourth form)))
+	   (send trans :defun (caddr form) (cadr form) (fourth form) (fifth form)))
 	(defmacro
-	   (send trans :defmacro (caddr form) (cadr form) (fourth form)))
+	   (send trans :defmacro (caddr form) (cadr form) (fourth form) (fifth form)))
 	(defmethod (send trans :defmethod (cadr form) (caddr form)
-				 (fourth form) (fifth form)))
+				 (fourth form) (fifth form) (sixth form)))
 	(t (send self :eval form) (send trans :discard 1)))))
  (:compile-file (file &key
 		 (cc-option "")

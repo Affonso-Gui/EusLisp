@@ -10,8 +10,8 @@
 (eval-when (load eval)
 
 (in-package "LISP")
-(export '(assert warning-message *break-on-warning* warn describe
-	describe-list apropos apropos-list dump-string
+(export '(assert warning-message *break-on-warning* warn function-lambda-list
+	describe describe-list apropos apropos-list dump-string
 	break setbreak unbreak
 	timing
 	btrace *tracelevel* eval-dynamic step-hook step 
@@ -41,6 +41,9 @@
    (apply #'format *error-output* format mesg)
    (finish-output *error-output*)
    (if *break-on-warning* (reploop "warn: ")) )
+
+(defun function-lambda-list (sym)
+  (get sym :function-lambda-list))
 
 (defun describe (obj &optional (strm *standard-output*) 
 			(*print-level* nil) (*print-length* nil))

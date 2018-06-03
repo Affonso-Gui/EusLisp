@@ -16,7 +16,7 @@ static char *rcsid="@(#)$Id$";
 #define nextbuddy(p) ((bpointer)((eusinteger_t)p+(buddysize[p->h.bix]*sizeof(pointer))))
 #endif
 
-extern pointer LAMCLOSURE, K_FUNCTION_DOCUMENTATION;
+extern pointer LAMCLOSURE, K_FUNCTION_DOCUMENTATION, K_FUNCTION_LAMBDA_LIST;
 
 /****************************************************************/
 /* boxing and unboxing
@@ -153,6 +153,15 @@ register int l;
   p->c.ivec.iv[l/sizeof(long)]=0;	/*terminator*/
   memcpy((void *)p->c.str.chars, (void *)s, l);
   return(p);}
+
+pointer to_string(ctx,obj)
+register context *ctx;
+register pointer obj;
+{ register pointer dest;
+  dest=(pointer)mkstream(ctx,K_OUT,makebuffer(256));
+  prinx(ctx,obj,dest);
+  return makestring((char *)dest->c.stream.buffer->c.str.chars,intval(dest->c.stream.count));
+}
 
 pointer make_foreign_string(eusinteger_t addr, int size)
 { register pointer p;
@@ -684,7 +693,7 @@ char* doc;
   pkg=Spevalof(PACKAGE);
   sym=intern(ctx,name,strlen(name),pkg);
   pointer_update(sym->c.sym.spefunc,makecode(mod,f,SUBR_SPECIAL));
-  if (doc) putprop(ctx, sym, makestring(doc,strlen(doc)), K_FUNCTION_DOCUMENTATION);
+  if (doc) putprop(ctx, sym, makestring(doc,strlen(doc)), K_FUNCTION_LAMBDA_LIST);
   return(sym);}
 
 pointer defconst(ctx,name,val,pkg)
@@ -740,20 +749,22 @@ char *name;
 
 extern pointer putprop();
 
-pointer compfun(ctx,sym,mod,entry,doc)
+pointer compfun(ctx,sym,mod,entry,arglist,doc)
 register context *ctx;
-register pointer sym,mod,doc;
+register pointer sym,mod,arglist,doc;
 pointer (*entry)();
 { pointer_update(sym->c.sym.spefunc,makecode(mod,entry,SUBR_FUNCTION));
-  if (doc!=NIL) putprop(ctx,sym,doc,K_FUNCTION_DOCUMENTATION); 
+  putprop(ctx,sym,arglist,K_FUNCTION_LAMBDA_LIST);
+  if (doc) putprop(ctx,sym,doc,K_FUNCTION_DOCUMENTATION);
   return(sym);}
 
-pointer compmacro(ctx,sym,mod,entry,doc)
+pointer compmacro(ctx,sym,mod,entry,arglist,doc)
 register context *ctx;
-register pointer sym,mod,doc;
+register pointer sym,mod,arglist,doc;
 pointer (* entry)();
 { pointer_update(sym->c.sym.spefunc,makecode(mod,entry,SUBR_MACRO));
-  if (doc!=NIL) putprop(ctx,sym, doc, K_FUNCTION_DOCUMENTATION); 
+  putprop(ctx,sym,arglist,K_FUNCTION_LAMBDA_LIST);
+  if (doc) putprop(ctx,sym,doc,K_FUNCTION_DOCUMENTATION);
   return(sym);}
 
 /****************************************************************/

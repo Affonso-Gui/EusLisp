@@ -14,7 +14,7 @@ static char *rcsid="@(#)$Id$";
 
 #include "eus.h"
 extern pointer MACRO,LAMBDA,LAMCLOSURE;
-extern pointer K_FUNCTION_DOCUMENTATION;
+extern pointer K_FUNCTION_DOCUMENTATION,K_FUNCTION_LAMBDA_LIST;
 extern struct bindframe  *declare();
 
 #ifdef EVAL_DEBUG
@@ -1073,11 +1073,21 @@ pointer *argv;
   set_special(ctx, var, val);
   return(val);}
 
+void add_doc(ctx,sym,arglist,doc)
+context *ctx;
+pointer sym,arglist,doc;
+{
+  if (arglist==NIL) arglist=makestring("()", 2);
+  else arglist=to_string(ctx,arglist);
+  putprop(ctx,sym,arglist,K_FUNCTION_LAMBDA_LIST);
+  if (isstring(doc))
+    putprop(ctx,sym,doc,K_FUNCTION_DOCUMENTATION);
+}
+
 pointer DEFUN(ctx,arg)
 register context *ctx;
 pointer arg;
 { pointer funcname;
-  extern pointer putprop();
 #ifdef SPEC_DEBUG
   printf( "DEFUN:" ); hoge_print( arg );
 #endif
@@ -1085,9 +1095,7 @@ pointer arg;
   arg=ccdr(arg);
   if (issymbol(funcname)) {pointer_update(funcname->c.sym.spefunc,cons(ctx,LAMBDA,arg));}
   else error(E_NOSYMBOL);
-  putprop(ctx,funcname,
-	 (isstring(ccar(ccdr(arg))))?(ccar(ccdr(arg))):(ccar(arg)),
-	 K_FUNCTION_DOCUMENTATION);
+  add_doc(ctx,funcname,ccar(arg),ccar(ccdr(arg)));
   return(funcname);}
  
 pointer DEFMACRO(ctx,arg)
@@ -1101,6 +1109,7 @@ pointer arg;
   arg=ccdr(arg);
   if (issymbol(macname)) {pointer_update(macname->c.sym.spefunc,cons(ctx,MACRO,arg));}
   else error(E_NOSYMBOL);
+  add_doc(ctx,macname,ccar(arg),ccar(ccdr(arg)));
   return(macname);}
 
 pointer FINDSYMBOL(ctx,n,argv)
@@ -1328,7 +1337,7 @@ pointer mod;
   defun(ctx,"MAKUNBOUND",mod,MAKUNBOUND);
   defun(ctx,"SET",mod,SETSPECIAL);
   defspecial(ctx,"DEFUN",mod,DEFUN,"(name args &rest body)");
-  defspecial(ctx,"DEFMACRO",mod,DEFMACRO, "(name lambda-list &rest body)");
+  defspecial(ctx,"DEFMACRO",mod,DEFMACRO,"(name lambda-list &rest body)");
   defun(ctx,"FIND-SYMBOL",mod,FINDSYMBOL);
   defun(ctx,"INTERN",mod,INTERN);
   defun(ctx,"GENSYM",mod,GENSYM);

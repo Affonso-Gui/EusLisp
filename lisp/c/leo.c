@@ -12,7 +12,7 @@ static char *rcsid="@(#)$Id$";
 
 #include "eus.h"
 
-extern pointer K_METHOD_DOCUMENTATION;
+extern pointer K_METHOD_DOCUMENTATION, K_FUNCTION_LAMBDA_LIST;
 
 #if THREADED
 /* static mutex_t mcache_lock; */ /* This variable is not used. */
@@ -87,11 +87,26 @@ register pointer argv[];
 	
 extern pointer K_CLASS;
 
-void addmethod(ctx,meth,class,doc)
+void addmethod_doc(ctx,class,selector,doc,place)
+context *ctx;
+pointer class,selector,doc,place;
+{ pointer lamlist,medoc,medoc2;
+  lamlist=cons(ctx,class,doc);
+  medoc=assq(place,selector->c.sym.plist);
+  if (medoc==NIL) putprop(ctx,selector,cons(ctx,lamlist,NIL),place);
+  else {
+    medoc2=assq(class,ccdr(medoc));
+    if (medoc2==NIL)
+      {pointer_update(medoc->c.cons.cdr,cons(ctx,lamlist,ccdr(medoc)));}
+    else pointer_update(medoc2->c.cons.cdr,doc);
+  }
+}
+
+void addmethod(ctx,meth,class,arglist,doc)
 register context *ctx;
-register pointer meth,class,doc;
+register pointer meth,class,arglist,doc;
 { extern pointer putprop(), assq();
-  register pointer selector,methods,classes,medoc,medoc2;
+  register pointer selector,methods,classes;
   register int i,j;
   vpush(meth);
   selector=ccar(meth); methods=class->c.cls.methods;
@@ -99,18 +114,10 @@ register pointer meth,class,doc;
   classes=assq(K_CLASS,selector->c.sym.plist);
   if (classes!=NIL) classes=ccdr(classes);
   putprop(ctx,selector,cons(ctx,class,classes),K_CLASS);
-/* */
-  if (doc!=NIL) {
-    medoc=assq(K_METHOD_DOCUMENTATION, selector->c.sym.plist);
-/*    prinx(medoc,STDOUT); */
-    if (medoc==NIL) putprop(ctx,selector,cons(ctx,cons(ctx,class,doc),NIL),
-				     K_METHOD_DOCUMENTATION);
-    else {
-      medoc2=assq(class,ccdr(medoc));
-      if (medoc2==NIL)
-      {pointer_update(medoc->c.cons.cdr,cons(ctx,cons(ctx,class,doc),ccdr(medoc)));}
-      else pointer_update(medoc2->c.cons.cdr,doc); } }
-/* */
+
+  addmethod_doc(ctx,class,selector,arglist,K_FUNCTION_LAMBDA_LIST);
+  if (doc) addmethod_doc(ctx,class,selector,doc,K_METHOD_DOCUMENTATION);
+
   if (methods==NIL) {pointer_update(class->c.cls.methods,cons(ctx,meth,NIL));}
   else if (ccar(ccar(methods))==selector) {pointer_update(ccar(methods),meth);}
   else {
@@ -130,21 +137,21 @@ purgecache:
           pointer_update(ctx->methcache[i].selector,NIL); }
   }
   
-void addcmethod(ctx,mod,cfunc,sel,class,doc)
+void addcmethod(ctx,mod,cfunc,sel,class,arglist,doc)
 register context *ctx;
-pointer sel,mod,class,doc;
+pointer sel,mod,class,arglist,doc;
 pointer (*cfunc)();
 { if (!issymbol(class)) error(E_NOCLASS,class);
   class=speval(class);
   if (class==UNBOUND || !isclass(class)) error(E_NOCLASS,class);
   addmethod(ctx,cons(ctx,sel,
 			cons(ctx,makecode(mod,cfunc,SUBR_FUNCTION),NIL)),
-		class,doc);}
+		class,arglist,doc);}
 
 pointer DEFMETHOD(ctx,arg)	/*special form*/
 register context *ctx;
 pointer arg;
-{ register pointer class,selector,classsym,body,doc;
+{ register pointer class,selector,classsym,body,arglist,doc;
   classsym=carof(arg,E_MISMATCHARG); arg=ccdr(arg);
   if (!issymbol(classsym)) error(E_NOSYMBOL);
   class=speval(classsym);
@@ -153,9 +160,11 @@ pointer arg;
   while (islist(arg)) {
     body=ccar(arg);	/* (:selector (args) . body) */
     if (!iscons(body)) error(E_NOLIST);
+    arglist=ccar(ccdr(body));
+    if (arglist==NIL) arglist=makestring("()", 2); else arglist=to_string(ctx,arglist);
     doc=ccdr(ccdr(body));
-    if (isstring(ccar(doc))) doc=ccar(doc); else doc=NIL;
-    addmethod(ctx,body,class,doc); arg=ccdr(arg);}
+    if (isstring(ccar(doc))) doc=ccar(doc); else doc=NULL;
+    addmethod(ctx,body,class,arglist,doc); arg=ccdr(arg);}
   return(classsym);}
 
 pointer INSTANTIATE(ctx,n,argv)
@@ -732,8 +741,8 @@ pointer mod;
   defun(ctx,"SETSLOT",mod,SETSLOT);
   defun(ctx,"FIND-METHOD",mod,FINDMETHOD);
   defunpkg(ctx,"METHOD-CACHE",mod,METHCACHE,syspkg);
-  addcmethod(ctx,mod,CONSCAR,defkeyword(ctx,"CAR"),QCONS,NIL);
-  addcmethod(ctx,mod,CONSCDR,defkeyword(ctx,"CDR"),QCONS,NIL);
+  addcmethod(ctx,mod,CONSCAR,defkeyword(ctx,"CAR"),QCONS,NULL,NULL);
+  addcmethod(ctx,mod,CONSCDR,defkeyword(ctx,"CDR"),QCONS,NULL,NULL);
   defun(ctx,"COPY-OBJECT",mod,COPYOBJ);
   defun(ctx,"BECOME",mod,BECOME);
   defun(ctx,"REPLACE-OBJECT",mod,REPLACEOBJECT);

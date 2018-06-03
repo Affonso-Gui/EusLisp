@@ -13,7 +13,7 @@
 
 (defun def-builtin-entry (sym lab &optional doc)
    (putprop sym lab 'builtin-function-entry)
-   (setf (get sym :function-documentation) doc))
+   (putprop sym doc :function-lambda-list))
 
 (def-builtin-entry 'LISP:= "NUMEQUAL" "(number &rest more-numbers)")
 (def-builtin-entry 'LISP:> "GREATERP" "(number &rest more-numbers)")
@@ -223,7 +223,7 @@
 ;; (def-builtin-entry 'STRING= "STR_EQ")
 (def-builtin-entry 'LISP:STRING> "STR_GT" "(string1 string2 &key (start1 0) end1 (start2 0) end2)")
 (def-builtin-entry 'LISP:STRING>= "STR_GE" "(string1 string2 &key (start1 0) end1 (start2 0) end2)")
-(def-builtin-entry 'LISP:EVAL "EVAL" "(original-exp)")
+(def-builtin-entry 'LISP:EVAL "EVAL" "(original-exp &optional env)")
 (def-builtin-entry 'LISP:APPLY "APPLY" "(function arg &rest arguments)")
 (def-builtin-entry 'LISP:FUNCALL "FUNCALL" "(function &rest arguments)")
 (def-builtin-entry 'LISP:PROG1 "PROG1" "(&rest args)")

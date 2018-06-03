@@ -589,33 +589,36 @@
     (send self :reset-vsp)
     (send self :push
 	  (format nil "makeclosure(codevec,quotevec,~A,env,argv,local)" lab)))
- (:defun (sym cname doc)
+ (:defun (sym cname arglist doc)
     (send self :clearpush)
     (send self :reset-vsp)
     (format cfile
-	    "	compfun(ctx,fqv[~d],module,~A,fqv[~d]);~%" 
+	    "	compfun(ctx,fqv[~d],module,~A,fqv[~d],~A);~%"
 	    (send self :quote-entry sym)
 	    cname
-	    (send self :quote-entry doc)) )
- (:defmacro (sym label doc)
+	    (send self :quote-entry arglist)
+	    (send self :quote-fqv-entry doc)))
+ (:defmacro (sym label arglist doc)
     (send self :clearpush)
     (send self :reset-vsp)
     (format cfile
-	    "	compmacro(ctx,fqv[~d],module,~A,fqv[~d]);~%" 
+	    "	compmacro(ctx,fqv[~d],module,~A,fqv[~d],~A);~%"
 	    (send self :quote-entry sym)
 	    label
-	    (send self :quote-entry doc)))
+	    (send self :quote-entry arglist)
+	    (send self :quote-fqv-entry doc)))
  (:quote-fqv-entry (q)
-    (if (null q) "NIL" (format nil "fqv[~d]" (send self :quote-entry q))))
- (:defmethod (klass sel label doc)	;define func/macro/method/class
-;   addcmethod(module,cfunc,sel,klass)
+    (if (null q) "NULL" (format nil "fqv[~d]" (send self :quote-entry q))))
+ (:defmethod (klass sel label arglist doc)	;define func/macro/method/class
+;   addcmethod(ctx,module,cfunc,sel,klass,arglist,doc)
     (send self :clearpush)
     (send self :reset-vsp)
     (format cfile
-	    "	addcmethod(ctx,module,~A,fqv[~d],fqv[~d],~A);~%"
+	    "	addcmethod(ctx,module,~A,fqv[~d],fqv[~d],fqv[~d],~A);~%"
 	    label
 	    (send self :quote-entry sel)
 	    (send self :quote-entry klass)
+	    (send self :quote-entry arglist)
 	    (send self :quote-fqv-entry doc)	))
  (:declare-forward-function (name)
     (format hfile "static pointer ~A();~%" name))
