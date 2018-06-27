@@ -460,14 +460,21 @@ register pointer a,f;
 { char buf[16];
   register int i,j,rank,etype,size=1,index;
   register pointer p,v;
-  rank=intval(a->c.ary.rank);
-  etype=elmtypeof(a->c.ary.entity);
-  sprintf(buf,"#%d%c",rank,(etype==ELM_FLOAT)?'f':
-			   (etype==ELM_INT)?'i':'a');
-  writestr(f,(byte *)buf,strlen(buf));
-  if (isint(a->c.ary.offset)) index=intval(a->c.ary.offset); else index=0;
-  prinary(ctx,f,prlevel,a,rank,0,index);
+  if (a->c.ary.rank == NIL) {
+    sprintf(buf,"#0a");
+    writestr(f,(byte *)buf,strlen(buf));
+    prin1(ctx, a->c.ary.entity, f, prlevel);
   }
+  else {
+    rank=intval(a->c.ary.rank);
+    etype=elmtypeof(a->c.ary.entity);
+    sprintf(buf,"#%d%c",rank,(etype==ELM_FLOAT)?'f':
+	    (etype==ELM_INT)?'i':'a');
+    writestr(f,(byte *)buf,strlen(buf));
+    if (isint(a->c.ary.offset)) index=intval(a->c.ary.offset); else index=0;
+    prinary(ctx,f,prlevel,a,rank,0,index);
+  }
+}
 
 static void printlist(ctx,x,f,fobj,prlevel)
 register context *ctx;

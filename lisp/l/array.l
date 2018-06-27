@@ -99,6 +99,10 @@
 	  (setq entity (instantiate element-type dim))
 	  (setq a entity)
 	  (setq dim (list dim)))
+	 ((null dim)
+	  (setq a (instantiate array))
+	  (setf (array-entity a) (or initial-element initial-contents))
+	  (return-from make-array a))
 	 (t
 	   (setq a (instantiate array))
 	   (let* ((i 0)
@@ -178,7 +182,8 @@
 |#
 ;;; array reader for #nA, #nF and #nI sharp macros
 (defun list-dimensions (list)
-   (cond ((consp (car list))
+   (cond ((atom list) nil)
+         ((consp (car list))
 	  (cons (length list) (list-dimensions (car list))))
          (t (list (length list)))))
 
