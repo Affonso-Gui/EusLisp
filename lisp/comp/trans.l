@@ -19,6 +19,8 @@
 
 (defvar trans nil)
 
+(defvar lab-count 0)
+
 (defun c-stringize (x)
   (let ((s (prin1-to-string x)) r)
      (cond ((position #\newline s)
@@ -135,7 +137,8 @@
 			   (if (= opt 0) "!=" "<") req))) )
  (:check-opt-arg (m lab)
    (format cfile "	if (n>=~d) { local[~d]=(argv[~d]); goto ~A;}~%"
-		 (1+ m) pushcount m lab)) 
+		 (1+ m) pushcount m lab)
+   (format cfile "G~0,2D:~%" (incf lab-count))) 
  (:check-rest-arg (m)
    (if (> *safety* 0)
        (format cfile "	if (n>~d) maerror();~%" m)) )
@@ -153,7 +156,8 @@
 	   (if allowotherkeys 1 0))
    (inc pushcount keyn))
  (:check-key-arg (n lab)
-   (format cfile "	if (n & (1<<~A)) goto ~A;~%" n lab))
+   (format cfile "	if (n & (1<<~A)) goto ~A;~%" n lab)
+   (format cfile "G~0,2D:~%" (incf lab-count)))
  (:getbase (n argp) 
    (cond ((= n 0) (if argp "argv" "local"))
 	 (t
@@ -442,15 +446,19 @@
 				  (floatp . "isflt") (stringp . "isstring")
 				 ))))))
  (:if-nil (lab)
-    (format cfile "	if (~A==NIL) goto ~A;~%" (send self :pop) lab))
+    (format cfile "	if (~A==NIL) goto ~A;~%" (send self :pop) lab)
+    (format cfile "G~0,2D:~%" (incf lab-count)))
  (:if-t (lab)
-    (format cfile "	if (~A!=NIL) goto ~A;~%" (send self :pop) lab))
+    (format cfile "	if (~A!=NIL) goto ~A;~%" (send self :pop) lab)
+    (format cfile "G~0,2D:~%" (incf lab-count)))
  (:if-eq (lab)
     (format cfile "	if (~A==~A) goto ~A;~%" (send self :pop)
-						(send self :pop) lab))
+						(send self :pop) lab)
+    (format cfile "G~0,2D:~%" (incf lab-count)))
  (:if-neq (lab)
     (format cfile "	if (~A!=~A) goto ~A;~%" (send self :pop)
-						(send self :pop) lab))
+						(send self :pop) lab)
+    (format cfile "G~0,2D:~%" (incf lab-count)))
 ;;; integer arithmetics, machine architecture dependent
  (:int-op2 (op)		;+,-,*,logand,logior
     (cond ((memq op '(+ - logand logior))
@@ -487,13 +495,15 @@
 	  ((eq type 'int)
 	    (send self :store "w")
 	    (format cfile "	if ((eusinteger_t)~A ~A (eusinteger_t)w) goto ~A;~%"
-			   (send self :pop) comparator lab))
+			   (send self :pop) comparator lab)
+            (format cfile "G~0,2D:~%" (incf lab-count)))
 	  ((eq type 'float)
 	    (format cfile "	{ double left,right;~%")
 	    (format cfile 
 		"		right=fltval(~A); left=fltval(~A);~%"
 		(send self :pop) (send self :pop))
-	    (format cfile "	if (left ~A right) goto ~A;}~%" comparator lab))
+	    (format cfile "	if (left ~A right) goto ~A;}~%" comparator lab)
+            (format cfile "G~0,2D:~%" (incf lab-count)))
 	 (t (send self :error "illegal compare"))))
 ;;; floating arithemtics
  (:flt-op2 (op)
@@ -517,11 +527,13 @@
  (:if-type (type lab)
     (send self :store "w")
     (format cfile "	if (~A(w)) goto ~A;~%"
-		  (send self :type-checker type) lab))
+		  (send self :type-checker type) lab)
+    (format cfile "G~0,2D:~%" (incf lab-count)))
  (:if-not-type (type lab)
     (send self :store "w")
     (format cfile "	if (!~A(w)) goto ~A;~%"
-		  (send self :type-checker type) lab))
+		  (send self :type-checker type) lab)
+    (format cfile "G~0,2D:~%" (incf lab-count)))
 ;;;
  (:jump (lab)
     (send self :clearpush)
@@ -543,6 +555,7 @@
     (format cfile
     "	if ((w=(pointer)eussetjmp(jb))!=0) { /*fsp=vsp;*/ goto ~A;}~%"
          exit)
+    (format cfile "G~0,2D:~%" (incf lab-count))
 ;    (send self :reset-fsp)
     (inc pushcount 6))	;five long for a catch frame
  (:exitcatch (exlab)
@@ -671,7 +684,7 @@ register context *ctx; int n; pointer *argv; pointer env;~%" entry)
     (format cfile "  codevec=module->c.code.codevec;~%")
     (format cfile "  fqv=qv=quotevec->c.vec.v;~%")
     (format cfile "  init_ftab();~%")
-    )
+    (format cfile "G~0,2D:~%" lab-count))
  (:write-quote-vector ()
     (format hfile "#define QUOTE_STRINGS_SIZE ~d~%" (length quotev))
     (format hfile "~astatic char *quote_strings[QUOTE_STRINGS_SIZE]={~%"
