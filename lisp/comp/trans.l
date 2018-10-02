@@ -56,7 +56,8 @@
  (:label (l)
    (send self :clearpush)
    (format cfile "~A:~%" l)
-   (if labelpub (format cfile "	send(new_socket, ~S, strlen(~S), 0);~%" l l)))
+   (if labelpub (format cfile "	send(new_socket, \"~A\\n\", ~A, 0);~%"
+			l (1+ (length l)))))
  (:comment (&rest c)
    (princ "/*" cfile)
    (while c (princ (pop c) cfile))
