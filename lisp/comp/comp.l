@@ -1225,6 +1225,7 @@
 		 (pic *pic*)	;t forces position independent code 
 		 (verbose *verbose*)
 		 (entry (lisp::gencname-tail (pathname-name file)))
+		 (publish-label)
 		 (o))
    (if (and (integerp c-optimize)
 	    (> c-optimize 0)
@@ -1235,6 +1236,7 @@
    (setq *optimize* optimize
 	 *safety* safety
 	 *verbose* verbose)
+   (send trans :publish-label publish-label)
    (unless (send (pathname file) :directory)
      (setq file (namestring (merge-pathnames "./" file))))
    (when o

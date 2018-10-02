@@ -19,7 +19,10 @@
 
 (defvar trans nil)
 
-(defvar lab-count 0)
+(defvar lab-count -1)
+
+(defmacro publish-label ()
+  '(if labelpub (send self :label (format nil "G~0,2D" (incf lab-count)))))
 
 (defun c-stringize (x)
   (let ((s (prin1-to-string x)) r)
@@ -32,7 +35,7 @@
 	   (t s))))
 
 (defclass translator :super object
-		     :slots (cfile hfile push pushcount quotev))
+		     :slots (cfile hfile push pushcount quotev labelpub))
 
 (eval-when (load eval)
 
@@ -48,9 +51,12 @@
 	  index)))
 
 (defmethod translator
+ (:publish-label (bool)
+   (setq labelpub bool))
  (:label (l)
    (send self :clearpush)
-   (format cfile "~A:~%" l))
+   (format cfile "~A:~%" l)
+   (if labelpub (format cfile "	send(new_socket, ~S, strlen(~S), 0);~%" l l)))
  (:comment (&rest c)
    (princ "/*" cfile)
    (while c (princ (pop c) cfile))
@@ -138,7 +144,7 @@
  (:check-opt-arg (m lab)
    (format cfile "	if (n>=~d) { local[~d]=(argv[~d]); goto ~A;}~%"
 		 (1+ m) pushcount m lab)
-   (format cfile "G~0,2D:~%" (incf lab-count))) 
+   (publish-label))
  (:check-rest-arg (m)
    (if (> *safety* 0)
        (format cfile "	if (n>~d) maerror();~%" m)) )
@@ -157,7 +163,7 @@
    (inc pushcount keyn))
  (:check-key-arg (n lab)
    (format cfile "	if (n & (1<<~A)) goto ~A;~%" n lab)
-   (format cfile "G~0,2D:~%" (incf lab-count)))
+   (publish-label))
  (:getbase (n argp) 
    (cond ((= n 0) (if argp "argv" "local"))
 	 (t
@@ -447,18 +453,18 @@
 				 ))))))
  (:if-nil (lab)
     (format cfile "	if (~A==NIL) goto ~A;~%" (send self :pop) lab)
-    (format cfile "G~0,2D:~%" (incf lab-count)))
+    (publish-label))
  (:if-t (lab)
     (format cfile "	if (~A!=NIL) goto ~A;~%" (send self :pop) lab)
-    (format cfile "G~0,2D:~%" (incf lab-count)))
+    (publish-label))
  (:if-eq (lab)
     (format cfile "	if (~A==~A) goto ~A;~%" (send self :pop)
 						(send self :pop) lab)
-    (format cfile "G~0,2D:~%" (incf lab-count)))
+    (publish-label))
  (:if-neq (lab)
     (format cfile "	if (~A!=~A) goto ~A;~%" (send self :pop)
 						(send self :pop) lab)
-    (format cfile "G~0,2D:~%" (incf lab-count)))
+    (publish-label))
 ;;; integer arithmetics, machine architecture dependent
  (:int-op2 (op)		;+,-,*,logand,logior
     (cond ((memq op '(+ - logand logior))
@@ -496,14 +502,14 @@
 	    (send self :store "w")
 	    (format cfile "	if ((eusinteger_t)~A ~A (eusinteger_t)w) goto ~A;~%"
 			   (send self :pop) comparator lab)
-            (format cfile "G~0,2D:~%" (incf lab-count)))
+            (publish-label))
 	  ((eq type 'float)
 	    (format cfile "	{ double left,right;~%")
 	    (format cfile 
 		"		right=fltval(~A); left=fltval(~A);~%"
 		(send self :pop) (send self :pop))
 	    (format cfile "	if (left ~A right) goto ~A;}~%" comparator lab)
-            (format cfile "G~0,2D:~%" (incf lab-count)))
+            (publish-label))
 	 (t (send self :error "illegal compare"))))
 ;;; floating arithemtics
  (:flt-op2 (op)
@@ -528,12 +534,12 @@
     (send self :store "w")
     (format cfile "	if (~A(w)) goto ~A;~%"
 		  (send self :type-checker type) lab)
-    (format cfile "G~0,2D:~%" (incf lab-count)))
+    (publish-label))
  (:if-not-type (type lab)
     (send self :store "w")
     (format cfile "	if (!~A(w)) goto ~A;~%"
 		  (send self :type-checker type) lab)
-    (format cfile "G~0,2D:~%" (incf lab-count)))
+    (publish-label))
 ;;;
  (:jump (lab)
     (send self :clearpush)
@@ -555,7 +561,7 @@
     (format cfile
     "	if ((w=(pointer)eussetjmp(jb))!=0) { /*fsp=vsp;*/ goto ~A;}~%"
          exit)
-    (format cfile "G~0,2D:~%" (incf lab-count))
+    (publish-label)
 ;    (send self :reset-fsp)
     (inc pushcount 6))	;five long for a catch frame
  (:exitcatch (exlab)
@@ -642,6 +648,15 @@
 	  quotev nil
 	  external-functions nil
 	  ftab-next 0)
+    ;; PORT
+    (when labelpub
+      (format cfile "#include <unistd.h>~%")
+      (format cfile "#include <sys/socket.h>~%")
+      (format cfile "#include <stdlib.h>~%")
+      (format cfile "#include <netinet/in.h>~%")
+      (format cfile "#define PORT 8080~%~%")
+      (format cfile "int new_socket;~%"))
+
     (format cfile "/* ~a :  entry=~a */~%" (namestring cname) entry)
     (format cfile "/* compiled by ~a */~%" (lisp:lisp-implementation-version))
     (format cfile "#include \"eus.h\"~%")	;should specify -I opt.
@@ -676,7 +691,26 @@
  (:eusmain (entry)
       (format cfile "~%/* initializer*/~%pointer ___~A(ctx,n,argv,env)
 register context *ctx; int n; pointer *argv; pointer env;~%" entry)
-    (format cfile "{ register pointer *local=ctx->vsp, w, *fqv;~%  register int i;~%")
+    (format cfile "{ ~%")
+
+    ;; SERVER
+    (when labelpub
+      (format cfile "  // SOCKET SETTINGS~%")
+      (format cfile "  int server_fd, new_socket;~%")
+      (format cfile "  struct sockaddr_in address;~%")
+      (format cfile "  int opt = 1;~%")
+      (format cfile "  int addrlen = sizeof(address);~%")
+      (format cfile "  server_fd = socket(AF_INET, SOCK_STREAM, 0);~%")
+      (format cfile "  setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));~%")
+      (format cfile "  address.sin_family = AF_INET;~%")
+      (format cfile "  address.sin_addr.s_addr = INADDR_ANY;~%")
+      (format cfile "  address.sin_port = htons( PORT );~%")
+      (format cfile "  printf(\"Connecting to port %d...\\n\", PORT);~%")
+      (format cfile "  bind(server_fd, (struct sockaddr *)&address, sizeof(address));~%")
+      (format cfile "  listen(server_fd, 3);~%")
+      (format cfile "  new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen);~%~%"))
+
+    (format cfile "  register pointer *local=ctx->vsp, w, *fqv;~%  register int i;~%")
     (format cfile "  numunion nu;~%")
     (format cfile "  module=argv[0];~%")
     (format cfile "  quotevec=build_quote_vector(ctx,QUOTE_STRINGS_SIZE, quote_strings);~%")
@@ -684,7 +718,7 @@ register context *ctx; int n; pointer *argv; pointer env;~%" entry)
     (format cfile "  codevec=module->c.code.codevec;~%")
     (format cfile "  fqv=qv=quotevec->c.vec.v;~%")
     (format cfile "  init_ftab();~%")
-    (format cfile "G~0,2D:~%" lab-count))
+    (publish-label))
  (:write-quote-vector ()
     (format hfile "#define QUOTE_STRINGS_SIZE ~d~%" (length quotev))
     (format hfile "~astatic char *quote_strings[QUOTE_STRINGS_SIZE]={~%"
